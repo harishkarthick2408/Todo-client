@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import Loader from "../components/common/Loader";
 
 export default function Login() {
-  const { signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSignIn = async () => {
     setLoading(true);
@@ -23,6 +30,8 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  if (authLoading) return <Loader message="Authenticating..." />;
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
