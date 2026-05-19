@@ -7,6 +7,8 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 
+const REDIRECT_FLAG = "auth:redirecting";
+
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -15,48 +17,59 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const handleRedirect = async () => {
+    let unsubscribe = () => {};
+    let tokenRefreshInterval = null;
+    let isMounted = true;
+
+    const initAuth = async () => {
+      setLoading(true);
       try {
         await getRedirectResult(auth);
       } catch (error) {
         console.error("Redirect result error:", error);
+      } finally {
+        sessionStorage.removeItem(REDIRECT_FLAG);
       }
-    };
 
-    handleRedirect();
+      if (!isMounted) return;
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const token = await firebaseUser.getIdToken();
-          setUser(firebaseUser);
-          setIdToken(token);
-        } catch (error) {
-          console.error("Token error:", error);
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            setUser(firebaseUser);
+            setIdToken(token);
+          } catch (error) {
+            console.error("Token error:", error);
+            setUser(null);
+            setIdToken(null);
+          }
+        } else {
           setUser(null);
           setIdToken(null);
         }
-      } else {
-        setUser(null);
-        setIdToken(null);
-      }
-      setLoading(false);
-    });
+        setLoading(false);
+      });
 
-    const tokenRefreshInterval = setInterval(async () => {
-      if (auth.currentUser) {
-        const token = await auth.currentUser.getIdToken(true);
-        setIdToken(token);
-      }
-    }, 55 * 60 * 1000);
+      tokenRefreshInterval = setInterval(async () => {
+        if (auth.currentUser) {
+          const token = await auth.currentUser.getIdToken(true);
+          setIdToken(token);
+        }
+      }, 55 * 60 * 1000);
+    };
+
+    initAuth();
 
     return () => {
+      isMounted = false;
       unsubscribe();
-      clearInterval(tokenRefreshInterval);
+      if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
     };
   }, []);
 
   const signInWithGoogle = async () => {
+    sessionStorage.setItem(REDIRECT_FLAG, "1");
     await signInWithRedirect(auth, googleProvider);
   };
 
