@@ -1,5 +1,10 @@
 import { createContext, useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import {
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithRedirect,
+  signOut,
+} from "firebase/auth";
 import { auth, googleProvider } from "../firebase/firebaseConfig";
 
 export const AuthContext = createContext(null);
@@ -10,6 +15,17 @@ export const AuthProvider = ({ children }) => {
   const [idToken, setIdToken] = useState(null);
 
   useEffect(() => {
+    const initAuth = async () => {
+      try {
+        await getRedirectResult(auth);
+      } catch (error) {
+        setUser(null);
+        setIdToken(null);
+      }
+    };
+
+    initAuth();
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setLoading(true);
       if (currentUser) {
@@ -44,15 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   const signInWithGoogle = async () => {
     setLoading(true);
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const token = await result.user.getIdToken();
-      setUser(result.user);
-      setIdToken(token);
-      return result;
-    } finally {
-      setLoading(false);
-    }
+    await signInWithRedirect(auth, googleProvider);
   };
 
   const signOutUser = async () => {
