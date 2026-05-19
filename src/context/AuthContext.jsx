@@ -19,52 +19,73 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribe = () => {};
     let tokenRefreshInterval = null;
+    let timeoutId = null;
     let isMounted = true;
+    let resolved = false;
+
+    const resolveLoading = () => {
+      if (resolved) return;
+      resolved = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      setLoading(false);
+    };
 
     const initAuth = async () => {
-      setLoading(true);
-
       try {
-        const result = await getRedirectResult(auth);
-        if (result?.user && isMounted) {
-          const token = await result.user.getIdToken();
-          setUser(result.user);
-          setIdToken(token);
-          sessionStorage.removeItem(REDIRECT_FLAG);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Redirect result error:", error);
-        sessionStorage.removeItem(REDIRECT_FLAG);
-      }
+        setLoading(true);
 
-      if (!isMounted) return;
+        timeoutId = setTimeout(() => {
+          if (isMounted && !resolved) {
+            console.warn("Auth init timed out");
+            resolveLoading();
+          }
+        }, 5000);
 
-      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!isMounted) return;
-        if (firebaseUser) {
-          try {
-            const token = await firebaseUser.getIdToken();
-            setUser(firebaseUser);
+        try {
+          const result = await getRedirectResult(auth);
+          if (result?.user && isMounted) {
+            const token = await result.user.getIdToken();
+            setUser(result.user);
             setIdToken(token);
-          } catch (error) {
-            console.error("Token error:", error);
+            sessionStorage.removeItem(REDIRECT_FLAG);
+            resolveLoading();
+          }
+        } catch (error) {
+          console.error("Redirect result error:", error);
+          sessionStorage.removeItem(REDIRECT_FLAG);
+        }
+
+        if (!isMounted) return;
+
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (!isMounted) return;
+          if (firebaseUser) {
+            try {
+              const token = await firebaseUser.getIdToken();
+              setUser(firebaseUser);
+              setIdToken(token);
+            } catch (error) {
+              console.error("Token error:", error);
+              setUser(null);
+              setIdToken(null);
+            }
+          } else {
             setUser(null);
             setIdToken(null);
           }
-        } else {
-          setUser(null);
-          setIdToken(null);
-        }
-        setLoading(false);
-      });
+          resolveLoading();
+        });
 
-      tokenRefreshInterval = setInterval(async () => {
-        if (auth.currentUser) {
-          const token = await auth.currentUser.getIdToken(true);
-          if (isMounted) setIdToken(token);
-        }
-      }, 55 * 60 * 1000);
+        tokenRefreshInterval = setInterval(async () => {
+          if (auth.currentUser) {
+            const token = await auth.currentUser.getIdToken(true);
+            if (isMounted) setIdToken(token);
+          }
+        }, 55 * 60 * 1000);
+      } catch (error) {
+        console.error("Auth init failed:", error);
+        resolveLoading();
+      }
     };
 
     initAuth();
@@ -72,6 +93,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
       unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
       if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
     };
   }, []);
