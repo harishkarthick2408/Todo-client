@@ -8,7 +8,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const redirectPending = Boolean(sessionStorage.getItem("auth:redirecting"));
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -17,13 +16,14 @@ export default function Login() {
   }, [user, authLoading, navigate]);
 
   const handleSignIn = async () => {
-    if (redirectPending || loading) return;
+    if (loading) return;
     setLoading(true);
     setAuthError(null);
     try {
       await signInWithGoogle();
+      // onAuthStateChanged in AuthContext will pick up the user
+      // and navigate will trigger via the useEffect above
     } catch (error) {
-      sessionStorage.removeItem("auth:redirecting");
       setAuthError({
         message: "Sign-in failed. Please try again.",
         details: error?.message || "Unknown error",
@@ -33,7 +33,7 @@ export default function Login() {
     }
   };
 
-  if (authLoading || redirectPending) return <Loader message="Authenticating..." />;
+  if (authLoading) return <Loader message="Authenticating..." />;
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
@@ -46,7 +46,6 @@ export default function Login() {
           <p className="mt-4 text-indigo-200 text-lg">
             Stay focused, organized, and in control of your work.
           </p>
-
           <div className="mt-8 space-y-4 text-sm text-indigo-100">
             {[
               "Create and organize tasks instantly",
@@ -132,7 +131,7 @@ export default function Login() {
           <button
             type="button"
             onClick={handleSignIn}
-            disabled={loading || redirectPending}
+            disabled={loading}
             className="mt-8 border border-gray-300 rounded-lg px-6 py-3 flex items-center gap-3 hover:bg-gray-50 transition shadow-sm w-full justify-center disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {loading ? (
