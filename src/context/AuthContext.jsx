@@ -23,17 +23,25 @@ export const AuthProvider = ({ children }) => {
 
     const initAuth = async () => {
       setLoading(true);
+
       try {
-        await getRedirectResult(auth);
+        const result = await getRedirectResult(auth);
+        if (result?.user && isMounted) {
+          const token = await result.user.getIdToken();
+          setUser(result.user);
+          setIdToken(token);
+          sessionStorage.removeItem(REDIRECT_FLAG);
+          setLoading(false);
+        }
       } catch (error) {
         console.error("Redirect result error:", error);
-      } finally {
         sessionStorage.removeItem(REDIRECT_FLAG);
       }
 
       if (!isMounted) return;
 
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!isMounted) return;
         if (firebaseUser) {
           try {
             const token = await firebaseUser.getIdToken();
@@ -54,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       tokenRefreshInterval = setInterval(async () => {
         if (auth.currentUser) {
           const token = await auth.currentUser.getIdToken(true);
-          setIdToken(token);
+          if (isMounted) setIdToken(token);
         }
       }, 55 * 60 * 1000);
     };
@@ -77,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     await firebaseSignOut(auth);
     setUser(null);
     setIdToken(null);
+    sessionStorage.removeItem(REDIRECT_FLAG);
   };
 
   const refreshToken = async () => {

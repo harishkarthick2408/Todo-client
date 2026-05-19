@@ -8,9 +8,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [redirectPending, setRedirectPending] = useState(() =>
-    Boolean(sessionStorage.getItem("auth:redirecting"))
-  );
+  const redirectPending = Boolean(sessionStorage.getItem("auth:redirecting"));
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -18,23 +16,14 @@ export default function Login() {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      setRedirectPending(false);
-      sessionStorage.removeItem("auth:redirecting");
-    }
-  }, [authLoading, user]);
-
   const handleSignIn = async () => {
     if (redirectPending || loading) return;
     setLoading(true);
     setAuthError(null);
-    setRedirectPending(true);
     try {
       await signInWithGoogle();
     } catch (error) {
       sessionStorage.removeItem("auth:redirecting");
-      setRedirectPending(false);
       setAuthError({
         message: "Sign-in failed. Please try again.",
         details: error?.message || "Unknown error",
