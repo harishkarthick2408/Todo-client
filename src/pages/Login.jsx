@@ -15,22 +15,20 @@ export default function Login() {
     }
   }, [user, authLoading, navigate]);
 
-  const handleSignIn = async () => {
+  const handleSignIn = () => {
     if (loading) return;
     setLoading(true);
     setAuthError(null);
-    try {
-      await signInWithGoogle();
-      // onAuthStateChanged in AuthContext will pick up the user
-      // and navigate will trigger via the useEffect above
-    } catch (error) {
-      setAuthError({
-        message: "Sign-in failed. Please try again.",
-        details: error?.message || "Unknown error",
+    signInWithGoogle()
+      .catch((error) => {
+        setAuthError({
+          message: "Sign-in failed. Please try again.",
+          details: error?.message || "Unknown error",
+        });
+      })
+      .finally(() => {
+        setLoading(false);
       });
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (authLoading) return <Loader message="Authenticating..." />;
