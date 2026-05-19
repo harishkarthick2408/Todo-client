@@ -5,6 +5,8 @@ import {
   getRedirectResult,
   onAuthStateChanged,
   signOut as firebaseSignOut,
+  setPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
 
 export const AuthContext = createContext(null);
@@ -39,6 +41,7 @@ export const AuthProvider = ({ children }) => {
       }, 5000);
 
       try {
+        await setPersistence(auth, browserLocalPersistence);
         const result = await getRedirectResult(auth);
         if (result?.user && isMounted) {
           const token = await result.user.getIdToken();
@@ -89,7 +92,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signInWithGoogle = () => {
-    return signInWithRedirect(auth, googleProvider);
+    return setPersistence(auth, browserLocalPersistence).then(() =>
+      signInWithRedirect(auth, googleProvider)
+    );
   };
 
   const signOut = async () => {
