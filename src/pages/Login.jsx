@@ -15,20 +15,20 @@ export default function Login() {
     }
   }, [user, authLoading, navigate]);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (loading) return;
     setLoading(true);
     setAuthError(null);
-    signInWithGoogle()
-      .catch((error) => {
-        setAuthError({
-          message: "Sign-in failed. Please try again.",
-          details: error?.message || "Unknown error",
-        });
-      })
-      .finally(() => {
-        setLoading(false);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      setAuthError({
+        message: "Sign-in failed. Please try again.",
+        details: error?.message || "Unknown error",
       });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (authLoading) return <Loader message="Authenticating..." />;

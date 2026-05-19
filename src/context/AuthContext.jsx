@@ -1,7 +1,8 @@
 import { createContext, useEffect, useState } from "react";
 import { auth, googleProvider } from "../firebase/firebaseConfig";
 import {
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged,
   signOut as firebaseSignOut,
 } from "firebase/auth";
@@ -16,43 +17,79 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribe = () => {};
     let tokenRefreshInterval = null;
+    let timeoutId = null;
     let isMounted = true;
+    let resolved = false;
 
-    unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!isMounted) return;
-      if (firebaseUser) {
-        try {
-          const token = await firebaseUser.getIdToken();
-          setUser(firebaseUser);
+    const resolveLoading = () => {
+      if (resolved) return;
+      resolved = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      setLoading(false);
+    };
+
+    const initAuth = async () => {
+      setLoading(true);
+
+      timeoutId = setTimeout(() => {
+        if (isMounted && !resolved) {
+          console.warn("Auth init timed out");
+          resolveLoading();
+        }
+      }, 5000);
+
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user && isMounted) {
+          const token = await result.user.getIdToken();
+          setUser(result.user);
           setIdToken(token);
-        } catch (err) {
-          console.error("Token fetch error:", err);
+        }
+      } catch (error) {
+        console.error("Redirect result error:", error);
+      }
+
+      if (!isMounted) return;
+
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!isMounted) return;
+        if (firebaseUser) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            setUser(firebaseUser);
+            setIdToken(token);
+          } catch (error) {
+            console.error("Token error:", error);
+            setUser(null);
+            setIdToken(null);
+          }
+        } else {
           setUser(null);
           setIdToken(null);
         }
-      } else {
-        setUser(null);
-        setIdToken(null);
-      }
-      setLoading(false);
-    });
+        resolveLoading();
+      });
 
-    tokenRefreshInterval = setInterval(async () => {
-      if (auth.currentUser && isMounted) {
-        const token = await auth.currentUser.getIdToken(true);
-        setIdToken(token);
-      }
-    }, 55 * 60 * 1000);
+      tokenRefreshInterval = setInterval(async () => {
+        if (auth.currentUser && isMounted) {
+          const token = await auth.currentUser.getIdToken(true);
+          setIdToken(token);
+        }
+      }, 55 * 60 * 1000);
+    };
+
+    initAuth();
 
     return () => {
       isMounted = false;
       unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
       clearInterval(tokenRefreshInterval);
     };
   }, []);
 
   const signInWithGoogle = () => {
-    return signInWithPopup(auth, googleProvider);
+    return signInWithRedirect(auth, googleProvider);
   };
 
   const signOut = async () => {
