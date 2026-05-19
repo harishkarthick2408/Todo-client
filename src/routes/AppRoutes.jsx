@@ -4,6 +4,7 @@ import MainLayout from "../layouts/MainLayout";
 import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
 import NotFound from "../pages/NotFound";
+import AuthCallback from "../pages/AuthCallback";
 
 export default function AppRoutes() {
   return (
@@ -13,6 +14,7 @@ export default function AppRoutes() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />
